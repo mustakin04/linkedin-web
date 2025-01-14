@@ -1,16 +1,33 @@
 import React, { useState } from "react";
 import sign_up from "../../assets/sign_up.png";
-import { Link } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  updateProfile,
+} from "firebase/auth";
+import { Vortex } from "react-loader-spinner";
+import { FaEyeSlash } from "react-icons/fa";
+import { FaEye } from "react-icons/fa";
+import { getDatabase, push, ref, set } from "firebase/database";
 
 const Registration = () => {
+  const auth = getAuth();
+  const db = getDatabase();
+
   const [email, setEmail] = useState("");
   const [nam, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [show, setShow] = useState(true);
 
   const [errorMail, setErrorMail] = useState("");
   const [errorName, setErrorName] = useState("");
   const [errorPassword, setErrorPassword] = useState("");
+  const [loader, setLoader] = useState(false);
+
+  const navigate = useNavigate();
 
   const handleEmail = (e) => {
     setEmail(e.target.value);
@@ -50,18 +67,53 @@ const Registration = () => {
       setErrorPassword("");
     }
     if (invalid) {
-      toast('🦄 Registration succesfully Done   ', {
-        position: "top-center",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: false,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        // transition: Bounce,
-        });
-    }
+      createUserWithEmailAndPassword(auth, email, password)
+          .then((user)=>{
+              updateProfile(auth.currentUser, {
+                  displayName: nam,
+                  //  photoURL: "https://example.com/jane-q-user/profile.jpg"
+                })
+                .then(() => {
+                  console.log(user,"fdg")
+                  sendEmailVerification(auth.currentUser)
+                  setLoader(true)
+                  toast("🦄 Registration successfully done!", {
+                    position: "top-center",
+                    autoClose: 5000,
+                    hideProgressBar: false,
+                    closeOnClick: false,
+                    pauseOnHover: true,
+                    draggable: true,
+                    progress: undefined,
+                    theme: "colored",
+                  });
+                  setEmail("")
+                  setPassword("")
+                  setName("")
+                  setTimeout(() => {
+                      navigate("/Login")
+                  }, 3000);
+                  // ...
+              }).then(()=>{
+                  set(ref(db, 'users/'+user.user.uid ), {
+                      username: user.user.displayName,
+                      email: user.user.email,
+                      
+                    });
+                  
+                  
+              })
+          })
+          
+          .catch((error) => {
+              const errorCode = error.code;
+              setErrorMail("auth/email-already-in-use")
+              // ..
+          });
+  }
+};
+  const handleShow = () => {
+    setShow(!show);
   };
 
   return (
@@ -128,7 +180,7 @@ const Registration = () => {
         <div className="relative mt-[40px] mb-[34px]">
           <input
             value={password}
-            type="text"
+            type={show ? "password" : "text"}
             onChange={handlePassword}
             className="w-[368px] border-[1px] border-[#b8bacf] py-[26px] pl-[15px] outline-none
           placeholder:font-poppins placeholder:font-semibold placeholder:text-[20px] placeholder:text-[#b8bacf]"
@@ -140,8 +192,32 @@ const Registration = () => {
           >
             Password
           </p>
+          {show ? (
+            <FaEyeSlash
+              onClick={handleShow}
+              className="text-3xl absolute top-[20px] left-[320px]"
+            />
+          ) : (
+            <FaEye
+              onClick={handleShow}
+              className="text-3xl absolute top-[20px] left-[320px]"
+            />
+          )}
           <h4>{errorPassword}</h4>
         </div>
+        {loader && (
+          <div className="ml-[150px]">
+            <Vortex
+              visible={true}
+              height="80"
+              width="80"
+              ariaLabel="vortex-loading"
+              wrapperStyle={{}}
+              wrapperClass="vortex-wrapper"
+              colors={["red", "green", "blue", "yellow", "orange", "purple"]}
+            />
+          </div>
+        )}
         <button
           onClick={handleSubmit}
           className="w-[368px] bg-[#5F35F5] font-poppins font-semibold text-[20px]
